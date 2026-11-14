@@ -1,0 +1,11 @@
+schema_version: "1.0"
+module: data
+project_root: ..
+paths:
+  audio_dir: data/raw/fma_medium
+  metadata_dir: data/raw/fma_metadata
+  output_dir: data/prepared
+min_tracks: null # Decide after inspecting the dataset; do not silently invent N.
+genres:
+  representation: multi_hot_union
+  include_parents: false

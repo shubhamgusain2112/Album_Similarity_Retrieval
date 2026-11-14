@@ -5,7 +5,7 @@ LIACS, Leiden University
 | **Binghao Guo** |  | https://github.com/BGuoMax |
 | **Shubham Gusain** | s4846761 | https://github.com/shubhamgusain2112 |
 | **Zhou Tong** |  | https://github.com/ztong3771 |
-| **Siwen Zhang** |  | https://github.com/ssswzh |
+| **Siwen Zhang** | s4683226 | https://github.com/ssswzh |
 
 ### Prerequisites
 We are working in Python 3.11 and I think FFmpeg will be necessary as well so install those.
@@ -24,21 +24,50 @@ cd .\Album_Similarity_Retrieval
 ```
 python -m venv .venv
 .\.venv\Scripts\activate
+# or use uv
+uv venv --python 3.11
+uv sync
+source .venv/bin/activate
 ```
+
 ### Dataset:
-FMA Small dataset [[Link]](https://github.com/mdeff/fma)
+Download FMA Medium dataset [[Link]](https://github.com/mdeff/fma) and metadata, unzip them to `data/raw/` folder:
+```bash
+mkdir -p data/raw/
+curl -O https://os.unil.cloud.switch.ch/fma/fma_metadata.zip
+python -m zipfile -e fma_metadata.zip data/raw/
+curl -O https://os.unil.cloud.switch.ch/fma/fma_medium.zip
+python -m zipfile -e fma_medium.zip data/raw/
+```
 
 ### Directory structure
-This is what my file structure looks like:
+The Python package lives directly in the project root:
 
+```text
+Album_Similarity_Retrieval/
+├── album_similarity/
+│   ├── __init__.py
+│   ├── contracts.py
+│   ├── utils.py
+│   ├── data.py
+│   ├── audio.py
+│   ├── representation.py
+│   ├── retrieval.py
+│   ├── evaluation.py
+│   └── ui.py
+├── configs/
+├── data/
+│   ├── raw/
+│   │   ├── fma_medium/
+│   │   └── fma_metadata/
+│   ├── prepared/
+│   ├── embeddings/
+│   └── representations/
+├── outputs/
+├── tests/
+├── pyproject.toml
+└── README.md
 ```
-- Album_Similarity_Retrieval
-    - .venv/
-    - data/
-        - fma_small/
-        - fma_metadata/
-    - .gitignore
-    - LICENSE
-    - README.md
 
-```
+The root `data/` directory stores dataset files.
+

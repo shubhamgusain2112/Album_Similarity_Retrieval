@@ -1,0 +1,11 @@
+schema_version: "1.0"
+module: ui
+project_root: ..
+paths:
+  prepared_dir: data/prepared
+  embeddings_dir: data/embeddings/default
+  representation_dir: data/representations/default
+  experiment_dir: outputs/experiments
+framework: streamlit
+seed: 42
+top_k: 5

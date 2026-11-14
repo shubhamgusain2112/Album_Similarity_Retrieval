@@ -1,0 +1,17 @@
+schema_version: "1.0"
+module: audio
+project_root: ..
+paths:
+  tracks: data/prepared/tracks.csv
+  output_dir: data/embeddings/default
+model:
+  name: null # B must select a MERT checkpoint and pin its revision.
+  revision: null
+  sample_rate: null # Must match the selected checkpoint.
+  layer: null
+preprocessing:
+  mono: true
+  segment_strategy: null # Choose and document a deterministic strategy.
+  segment_seconds: null
+pooling: temporal_mean
+l2_normalize: true

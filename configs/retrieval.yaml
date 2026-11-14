@@ -1,0 +1,21 @@
+schema_version: "1.0"
+module: retrieval
+project_root: ..
+paths:
+  prepared_dir: data/prepared
+  embeddings_dir: data/embeddings/default
+  representation_dir: data/representations/default
+  output_dir: outputs/retrieval
+query_album_id: null
+aggregation: mean
+track_setting: full
+seed: 42
+genre_weight: 0.5
+top_k: 5
+exclude_same_artist: false
+mode: standard
+score_normalization: cosine_range
+surprise:
+  default_strategy: null # Select only after comparing A and B.
+  high_percentile: null
+  low_percentile: null

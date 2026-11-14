@@ -1,0 +1,13 @@
+schema_version: "1.0"
+module: representation
+project_root: ..
+paths:
+  albums: data/prepared/albums.csv
+  embeddings_dir: data/embeddings/default
+  output_dir: data/representations/default
+min_tracks: null # Must match the agreed cohort policy.
+aggregations: [mean, medoid]
+track_settings: [one, three, half, full]
+repeats: 20
+seed: 42
+diversity_center: full_mean

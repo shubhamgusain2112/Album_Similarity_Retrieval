@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "album-similarity"
+version = "0.1.0"
+description = "Album representation and content-based music retrieval research"
+requires-python = ">=3.11"
+dependencies = ["numpy", "PyYAML"]
+
+[project.optional-dependencies]
+audio = ["torch", "transformers", "soundfile", "scipy"]
+ui = ["streamlit"]
+analysis = ["scipy", "matplotlib"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["album_similarity"]

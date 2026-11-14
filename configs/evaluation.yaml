@@ -1,0 +1,17 @@
+schema_version: "1.0"
+module: evaluation
+project_root: ..
+paths:
+  prepared_dir: data/prepared
+  embeddings_dir: data/embeddings/default
+  representation_dir: data/representations/default
+  output_dir: outputs/experiments
+experiments: [stability, diversity, weight_sensitivity, surprise_comparison]
+aggregations: [mean, medoid]
+track_settings: [one, three, half, full]
+repeats: 20
+seed: 42
+genre_weights: [0.0, 0.25, 0.5, 0.75, 1.0]
+primary_stability_genre_weight: 0.0
+exclude_same_artist: false
+stability_threshold: 0.8
