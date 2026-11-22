@@ -1,0 +1,24 @@
+Person A — FMA Data Preparation
+
+Files included in the ZIP:
+  album_similarity/data.py         Replace only this scaffold in the team repository
+  tests/test_data.py              Add tests
+  docs/data_preparation.md        Add instructions and interface notes
+
+Existing contracts.py, utils.py and configs/data.yaml should remain unchanged.
+The original configs/data.yaml still contains min_tracks: null and must be
+updated to an agreed positive integer after inspecting the actual cohort.
+
+Setup in the actual team repository:
+  python -m pip install -e .
+  python -m pip install pytest
+  python -m pytest -q tests/test_data.py
+  python -m album_similarity.data --config configs/data.yaml --check-config
+
+After downloading the FMA Medium audio and metadata into data/raw/ and setting
+min_tracks in configs/data.yaml:
+  python -m album_similarity.data --config configs/data.yaml
+
+Status: 11/11 tests passed with synthetic FMA fixtures.
+No full real-FMA run was possible without raw dataset files.
+The GitHub connector returned 403 on branch creation; nothing was pushed.
