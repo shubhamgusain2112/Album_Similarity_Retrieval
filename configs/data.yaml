@@ -5,7 +5,7 @@ paths:
   audio_dir: data/raw/fma_medium
   metadata_dir: data/raw/fma_metadata
   output_dir: data/prepared
-min_tracks: null # Decide after inspecting the dataset; do not silently invent N.
+min_tracks: 3
 genres:
   representation: multi_hot_union
   include_parents: false

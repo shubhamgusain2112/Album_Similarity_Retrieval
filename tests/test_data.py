@@ -100,6 +100,11 @@ def test_end_to_end_output_matches_shared_contract(tmp_path):
     assert report['audio_exclusions']['missing_audio']==1
     assert report['albums_below_min_tracks']==1
     assert report['validation']['valid'] is True
+    album_metadata = json.loads(
+        (prepared / "album_metadata.json").read_text()
+    )
+    assert album_metadata["10"]["track_count"] == 3
+    assert album_metadata["10"]["track_ids"] == ["2", "3", "4"]
 
 
 def test_deterministic_artifacts(tmp_path):

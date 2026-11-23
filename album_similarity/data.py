@@ -334,6 +334,19 @@ def save_prepared_data(catalog, genre_matrix, genre_index, config, output_dir):
         tracks.append(row)
     write_table(output / "tracks.csv", "tracks", tracks)
     write_table(output / "albums.csv", "albums", catalog["albums"])
+    album_metadata = {
+        album["album_id"]: {
+            "title": album["title"],
+            "track_count": album["usable_track_count"],
+            "track_ids": album["track_ids"],
+        }
+        for album in catalog["albums"]
+    }
+
+    (output / "album_metadata.json").write_text(
+        json.dumps(album_metadata, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     write_table(output / "genres.csv", "genres", catalog["genres"])
     write_table(output / "album_genre_index.csv", "album_genre_index", genre_index)
     if (genre_matrix.dtype != np.float32 or genre_matrix.ndim != 2 or
@@ -353,7 +366,7 @@ def save_prepared_data(catalog, genre_matrix, genre_index, config, output_dir):
         "genre_matrix_shape": list(genre_matrix.shape),
         "files": {name: name for name in (
             "tracks.csv", "albums.csv", "genres.csv", "album_genre_index.csv",
-            "album_genres.npy", "quality_report.json")},
+            "album_genres.npy", "quality_report.json", "album_metadata.json")},
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return manifest
