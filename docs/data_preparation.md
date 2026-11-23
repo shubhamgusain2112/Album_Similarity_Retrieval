@@ -94,8 +94,7 @@ Album genre vectors are unions of the retained usable tracks' labels.
 
 ## 4. Current limitations and outstanding decisions
 
-- A full FMA run has **not** been performed because the raw ~22 GiB audio archive
-  and metadata are not included with this deliverable.
+- Real-data validation was completed using FMA Medium audio and metadata.
 - `min_tracks` is currently set to 3; the final cohort requires real audio validation.
 - Raw FMA genre IDs are preserved; invalid IDs are removed and reported, and
   parent expansion is optional. Semantic synonym merges are intentionally
@@ -113,3 +112,18 @@ Album genre vectors are unions of the retained usable tracks' labels.
 - Missing audio and unknown genres are reported; no data are silently fabricated
 - Running twice with identical files/config creates byte-identical outputs
 - Actual FMA cohort counts, threshold choice, and full-run validation are recorded
+
+## Real-data validation results
+
+The data preparation pipeline was run on FMA Medium with `min_tracks = 3`.
+
+- Prepared albums: 3397
+- Prepared tracks: 22528
+- Genre vocabulary size: 163
+- Genre matrix shape: [3397, 163]
+- Audio exclusions: {'missing_audio': 81574}
+- Catalog validation: True
+- Per-album track counts are stored in `album_metadata.json`.
+
+Audio validation checks file existence and basic MP3 signatures.
+Full audio decoding is handled by the audio extraction module.
