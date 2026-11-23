@@ -1,2 +1,14 @@
 .venv/
 data/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Local datasets and generated artifacts
+data/raw/
+data/prepared/
+data/embeddings/
+data/representations/

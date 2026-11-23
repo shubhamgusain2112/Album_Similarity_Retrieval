@@ -71,3 +71,28 @@ Album_Similarity_Retrieval/
 
 The root `data/` directory stores dataset files.
 
+### Data Preparation (Person A)
+
+The FMA Medium data preparation pipeline has been implemented and validated.
+
+**Results:**
+- 3,397 albums and 22,528 tracks retained
+- 163 genre categories
+- Album-level multi-hot genre representations
+- 12 unit tests passed
+
+**Run the pipeline:**
+
+    python -m album_similarity.data --config configs/data.yaml
+
+**Outputs:**
+- tracks.csv, albums.csv, album_metadata.json
+- genres.csv, album_genre_index.csv, album_genres.npy
+- quality_report.json, manifest.json
+
+Generated files are saved in `data/prepared/`.
+Raw audio and generated datasets are excluded from Git.
+
+**Documentation:** [Data Preparation Guide](docs/data_preparation.md)
+
+**Status:** Data preparation completed. Streamlit UI development is pending.
