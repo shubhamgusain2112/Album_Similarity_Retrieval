@@ -26,11 +26,11 @@ python -m album_similarity.data --config configs/data.yaml --check-config
 python -m pytest -q tests/test_data.py
 ```
 
-`configs/data.yaml` currently has `min_tracks: null` intentionally. Choose this
-threshold **after inspecting actual audio availability and album-size distribution**.
-It must be a positive integer. A threshold of 3 is useful as a *candidate* because
-RQ1 compares one and three tracks, but it is **not** an approved project threshold.
-Set `min_tracks` after discussion and then run:
+The current configuration uses `min_tracks: 3`, allowing experiments
+with both 1 and 3 tracks per album while retaining more albums.
+The final eligible album count depends on actual audio validation.
+
+Run the pipeline after preparing the audio files:
 
 ```bash
 python -m album_similarity.data --config configs/data.yaml
@@ -64,6 +64,7 @@ The data pipeline writes these into `data/prepared/`:
 |---|---|
 | `tracks.csv` | `track_id,album_id,artist_id,audio_path,genre_ids` |
 | `albums.csv` | `album_id,title,artist_ids,track_ids,genre_ids,usable_track_count` |
+| `album_metadata.json` | Per-album `title`, `track_count`, and `track_ids`, keyed by `album_id`. The count refers to usable tracks after audio validation. |
 | `genres.csv` | `genre_id,name,parent_id,column_index` |
 | `album_genre_index.csv` | `row_index,album_id,has_genres` |
 | `album_genres.npy` | `float32` matrix `[num_albums, num_genres]`, row-aligned with `album_genre_index.csv` |
@@ -95,7 +96,7 @@ Album genre vectors are unions of the retained usable tracks' labels.
 
 - A full FMA run has **not** been performed because the raw ~22 GiB audio archive
   and metadata are not included with this deliverable.
-- The minimum eligible track count `min_tracks` must be chosen from real data.
+- `min_tracks` is currently set to 3; the final cohort requires real audio validation.
 - Raw FMA genre IDs are preserved; invalid IDs are removed and reported, and
   parent expansion is optional. Semantic synonym merges are intentionally
   **not** invented without an agreed genre mapping.
