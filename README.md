@@ -1,11 +1,11 @@
 # Album Similarity Retrieval using Music Embeddings and Genre Information
 LIACS, Leiden University
-| Team | Student ID | | 
-| :-------- | :---: | :------ |
-| **Binghao Guo** |  | https://github.com/BGuoMax |
-| **Shubham Gusain** | s4846761 | https://github.com/shubhamgusain2112 |
-| **Zhou Tong** |  | https://github.com/ztong3771 |
-| **Siwen Zhang** | s4683226 | https://github.com/ssswzh |
+| Team                  | Student ID |                                      | 
+| :--------             | :---:      | :------                              |
+| **Binghao Guo**       |            | https://github.com/BGuoMax           |
+| **Shubham Gusain**    | s4846761   | https://github.com/shubhamgusain2112 |
+| **Zhou Tong**         |            | https://github.com/ztong3771         |
+| **Siwen Zhang**       | s4683226   | https://github.com/ssswzh            |
 
 ### Prerequisites
 We are working in Python 3.11 and I think FFmpeg will be necessary as well so install those.
