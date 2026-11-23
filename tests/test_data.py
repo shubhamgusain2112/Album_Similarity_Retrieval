@@ -57,6 +57,32 @@ def test_load_multilevel_fma_metadata(tmp_path):
     assert [g['column_index'] for g in raw['genres']]==[0,1,2]
 
 
+
+def test_fma_medium_excludes_large_subset(tmp_path):
+    metadata, audio = fixture_fma(tmp_path)
+
+    with (metadata / "tracks.csv").open("a", newline="") as f:
+        csv.writer(f).writerow(
+            [7, 30, "Large Album", 9, "[2]", "large"]
+        )
+
+    raw = load_metadata(metadata)
+
+    assert len(raw["tracks"]) == 5
+    assert raw["report"]["metadata_excluded_subsets"]["large"] == 1
+    assert "7" not in {t["track_id"] for t in raw["tracks"]}
+
+    run_pipeline(config(), tmp_path)
+
+    prepared = tmp_path / "data/prepared"
+    report = json.loads(
+        (prepared / "quality_report.json").read_text()
+    )
+
+    assert report["audio_exclusions"]["missing_audio"] == 1
+    assert report["metadata_excluded_subsets"]["large"] == 1
+
+
 def test_missing_audio_and_album_filter(tmp_path):
     metadata,audio=fixture_fma(tmp_path)
     raw=load_metadata(metadata)

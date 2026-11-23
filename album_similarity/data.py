@@ -65,7 +65,8 @@ def load_metadata(raw_metadata_dir):
         columns = {(group.strip(), name.strip()): index
                    for index, (group, name) in enumerate(zip(groups, fields))}
         required = [("album", "id"), ("album", "title"),
-                    ("artist", "id"), ("track", "genres")]
+                    ("artist", "id"), ("track", "genres"),
+                    ("set", "subset")]
         missing = [str(key) for key in required if key not in columns]
         if missing:
             raise ValueError(f"FMA tracks.csv missing fields: {', '.join(missing)}")
@@ -73,11 +74,16 @@ def load_metadata(raw_metadata_dir):
         records = []
         seen = set()
         ignored_missing_ids = 0
+        excluded_subsets = Counter()
         for line_no, row in enumerate(reader, start=3):
             if not row or not any(row):
                 continue
             if len(row) != len(groups):
                 raise ValueError(f"FMA tracks.csv line {line_no}: unexpected column count")
+            subset = row[columns[("set", "subset")]].strip()
+            if subset not in ("small", "medium"):
+                excluded_subsets[subset or "<empty>"] += 1
+                continue
             track_id = _id(row[0])
             album_id = _id(row[columns[("album", "id")]])
             artist_id = _id(row[columns[("artist", "id")]])
@@ -123,6 +129,7 @@ def load_metadata(raw_metadata_dir):
     return {"tracks": records, "genres": genres,
             "report": {"metadata_track_count": len(records),
                        "metadata_missing_id_rows": ignored_missing_ids,
+                       "metadata_excluded_subsets": dict(sorted(excluded_subsets.items())),
                        "genre_vocabulary_count": len(genres)}}
 
 
