@@ -1,252 +1,435 @@
-"""Audio functions. Business algorithms are scaffolds."""
-from album_similarity.utils import run_module
+
+"""
+MERT audio embedding extraction.
+
+Input:
+    A's prepared tracks.csv
+
+Output:
+    data/embeddings/track_embeddings.npy
+    data/embeddings/manifest.json
+
+Each row in track_embeddings.npy corresponds exactly to the
+same row in the input tracks.csv.
+"""
+
+import argparse
+import json
+import re
+import time
+from pathlib import Path
+
+import librosa
+import numpy as np
+import pandas as pd
+import torch
+from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
 
-def load_audio(audio_path):
-    """Decode audio; return (waveform array [channels,samples], original sample rate as int).
-    Report corrupted files as failures.
+# ============================================================
+# Configuration
+# ============================================================
 
-    Args:
-        audio_path: Path to the audio file to decode or preprocess.
+MODEL_NAME = "m-a-p/MERT-v1-95M"
 
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
+# Your actual FMA data location on the server.
+# The relative path extracted from tracks.csv starts with "raw/".
+AUDIO_ROOT = Path("/local/s4854756/fma")
 
-    Notes:
-        Outputs described above are the intended contract, not current results.
+# Project root: this file is assumed to be in album_similarity/
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# Default input and output paths.
+TRACKS_CSV = PROJECT_ROOT / "outputs" / "tracks.csv"
+OUTPUT_DIR = PROJECT_ROOT / "data" / "embeddings"
+
+EMBEDDING_DIM = 768
+
+# Print progress every N tracks.
+LOG_INTERVAL = 100
+
+
+# ============================================================
+# Path resolution
+# ============================================================
+
+def resolve_audio_path(audio_path):
     """
-    raise NotImplementedError("audio.load_audio: not implemented")
+    Extract 'raw/...' from A's relative audio_path and
+    prepend AUDIO_ROOT.
 
+    Example:
+        data/raw/fma_medium/000/000002.mp3
 
-def standardize_audio(waveform, sample_rate, target_sample_rate, mono=True):
-    """Convert to mono if requested and resample for the model; return the standardized
-    waveform without implicit amplitude normalization.
-
-    Args:
-        waveform: Decoded audio samples, with channel layout appropriate to this operation.
-        sample_rate: Current sample rate in Hz.
-        target_sample_rate: Model-required output sample rate in Hz.
-        mono: Whether to convert the waveform to a single channel.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
+    Becomes:
+        /local/s4854756/fma/raw/fma_medium/000/000002.mp3
     """
-    raise NotImplementedError("audio.standardize_audio: not implemented")
+
+    audio_path = str(audio_path).replace("\\", "/")
+
+    match = re.search(r"raw/.*$", audio_path)
+
+    if match is None:
+        raise ValueError(
+            f"Cannot extract raw/ path from: {audio_path}"
+        )
+
+    relative_path = Path(match.group(0))
+    real_path = AUDIO_ROOT / relative_path
+
+    if not real_path.is_file():
+        raise FileNotFoundError(
+            f"Audio file does not exist: {real_path}"
+        )
+
+    return real_path
 
 
-def segment_audio(waveform, sample_rate, config):
-    """Apply a deterministic segmentation strategy; return segment arrays and document short-
-    audio handling in config and manifest.
+# ============================================================
+# Model loading
+# ============================================================
 
-    Args:
-        waveform: Decoded audio samples, with channel layout appropriate to this operation.
-        sample_rate: Current sample rate in Hz.
-        config: Configuration dictionary for this workflow or operation.
+def load_mert():
+    """Load the pretrained MERT model and feature extractor."""
 
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
+    print(f"Loading model: {MODEL_NAME}")
 
-    Notes:
-        Outputs described above are the intended contract, not current results.
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
+
+    print(f"Using device: {device}")
+
+    if device.type == "cuda":
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
+
+    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+        MODEL_NAME
+    )
+
+    sample_rate = feature_extractor.sampling_rate
+
+    if sample_rate != 24000:
+        raise ValueError(
+            f"Unexpected MERT sampling rate: {sample_rate}. "
+            "Please verify the model configuration."
+        )
+
+    model = AutoModel.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True
+    )
+
+    model.eval()
+    model.to(device)
+
+    hidden_size = model.config.hidden_size
+
+    if hidden_size != EMBEDDING_DIM:
+        raise ValueError(
+            f"Expected embedding dimension {EMBEDDING_DIM}, "
+            f"but model has hidden size {hidden_size}."
+        )
+
+    print(f"Sample rate: {sample_rate}")
+    print(f"Hidden size: {hidden_size}")
+    print("MERT model loaded successfully.\n")
+
+    return model, feature_extractor, device, sample_rate
+
+
+# ============================================================
+# Single-track embedding extraction
+# ============================================================
+
+def extract_embedding(
+    audio_path,
+    model,
+    feature_extractor,
+    device,
+    sample_rate
+):
     """
-    raise NotImplementedError("audio.segment_audio: not implemented")
+    Extract one embedding for an entire audio track.
 
-
-def preprocess_audio(audio_path, config):
-    """Coordinate decoding, standardization, and segmentation; return (segments, target sample
-    rate) without loading a model.
-
-    Args:
-        audio_path: Path to the audio file to decode or preprocess.
-        config: Configuration dictionary for this workflow or operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
+    Steps:
+        1. Load the entire audio.
+        2. Convert to mono and resample to MERT's sample rate.
+        3. Extract MERT hidden states.
+        4. Apply temporal mean pooling.
+        5. Return a 768-dimensional float32 vector.
     """
-    raise NotImplementedError("audio.preprocess_audio: not implemented")
+
+    audio, _ = librosa.load(
+        str(audio_path),
+        sr=sample_rate,
+        mono=True
+    )
+
+    if len(audio) == 0:
+        raise ValueError("Audio file is empty.")
+
+    inputs = feature_extractor(
+        audio,
+        sampling_rate=sample_rate,
+        return_tensors="pt"
+    )
+
+    inputs = {
+        key: value.to(device)
+        for key, value in inputs.items()
+    }
+
+    with torch.inference_mode():
+        outputs = model(**inputs)
+
+        # Shape before pooling: [1, T, 768]
+        hidden_states = outputs.last_hidden_state
+
+        # Mean pooling over the temporal dimension.
+        # Shape after pooling: [1, 768]
+        embedding = hidden_states.mean(dim=1)
+
+    embedding = embedding.squeeze(0).cpu().numpy()
+    embedding = embedding.astype(np.float32)
+
+    if embedding.shape != (EMBEDDING_DIM,):
+        raise ValueError(
+            f"Unexpected embedding shape: {embedding.shape}"
+        )
+
+    if not np.isfinite(embedding).all():
+        raise ValueError("Embedding contains NaN or Inf.")
+
+    return embedding
 
 
-def load_mert_model(model_config):
-    """Load the processor and MERT checkpoint at the specified revision; return an encoder
-    context dictionary, never load at import time.
+# ============================================================
+# Main extraction pipeline
+# ============================================================
 
-    Args:
-        model_config: Model settings including checkpoint, pinned revision, sample rate, and
-            layer.
+def extract_all_embeddings(tracks_csv, output_dir):
 
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
+    tracks_csv = Path(tracks_csv)
+    output_dir = Path(output_dir)
 
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.load_mert_model: not implemented")
+    if not tracks_csv.is_file():
+        raise FileNotFoundError(
+            f"tracks.csv not found: {tracks_csv}"
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Read A's prepared tracks.
+    tracks = pd.read_csv(tracks_csv)
+
+    required_columns = {
+        "track_id",
+        "album_id",
+        "audio_path"
+    }
+
+    missing_columns = required_columns - set(tracks.columns)
+
+    if missing_columns:
+        raise ValueError(
+            f"Missing columns in tracks.csv: {missing_columns}"
+        )
+
+    num_tracks = len(tracks)
+
+    if num_tracks == 0:
+        raise ValueError("tracks.csv contains no tracks.")
+
+    print(f"Number of tracks: {num_tracks}")
+    print(f"Input: {tracks_csv}")
+    print(f"Output: {output_dir}\n")
+
+    # Load MERT.
+    model, feature_extractor, device, sample_rate = load_mert()
+
+    # Create the output matrix directly on disk.
+    embedding_path = output_dir / "track_embeddings.npy"
+
+    embeddings = np.lib.format.open_memmap(
+        embedding_path,
+        mode="w+",
+        dtype=np.float32,
+        shape=(num_tracks, EMBEDDING_DIM)
+    )
+
+    # Initialize every row with zeros.
+    # Failed tracks will keep their zero vectors.
+    embeddings[:] = 0.0
+
+    failed_tracks = []
+    successful_count = 0
+
+    start_time = time.time()
+
+    # IMPORTANT:
+    # Do not sort or reset the DataFrame index.
+    # Output row i corresponds to tracks.csv row i.
+    for row_index, row in enumerate(
+        tracks.itertuples(index=False)
+    ):
+
+        track_id = row.track_id
+        album_id = row.album_id
+        audio_path = row.audio_path
+
+        try:
+            real_audio_path = resolve_audio_path(audio_path)
+
+            embedding = extract_embedding(
+                real_audio_path,
+                model,
+                feature_extractor,
+                device,
+                sample_rate
+            )
+
+            embeddings[row_index] = embedding
+            successful_count += 1
+
+        except Exception as exc:
+
+            # Keep the zero vector for this track.
+            failed_tracks.append({
+                "row_index": row_index,
+                "track_id": str(track_id),
+                "album_id": str(album_id),
+                "audio_path": str(audio_path),
+                "error": str(exc)
+            })
+
+        # Periodically flush results to disk.
+        if (row_index + 1) % LOG_INTERVAL == 0:
+            embeddings.flush()
+
+            elapsed = time.time() - start_time
+
+            print(
+                f"Processed {row_index + 1}/{num_tracks} | "
+                f"Success: {successful_count} | "
+                f"Failed: {len(failed_tracks)} | "
+                f"Elapsed: {elapsed / 60:.1f} min"
+            )
+
+    # Flush and release the memory-mapped array.
+    embeddings.flush()
+    del embeddings
+
+    elapsed = time.time() - start_time
+
+    # ========================================================
+    # Save manifest
+    # ========================================================
+
+    manifest = {
+        "model_name": MODEL_NAME,
+        "input_tracks_csv": str(tracks_csv),
+        "output_embedding_file": str(embedding_path),
+
+        "num_tracks": num_tracks,
+        "successful_tracks": successful_count,
+        "failed_tracks": len(failed_tracks),
+
+        "embedding_shape": [
+            num_tracks,
+            EMBEDDING_DIM
+        ],
+        "embedding_dtype": "float32",
+
+        "sample_rate": sample_rate,
+        "audio_channels": 1,
+        "audio_input": "entire_track",
+
+        "hidden_layer": "last_hidden_state",
+        "pooling": "temporal_mean_pooling",
+        "l2_normalization": False,
+
+        "row_alignment": (
+            "Row i in track_embeddings.npy corresponds "
+            "exactly to row i in the input tracks.csv."
+        ),
+
+        "failure_handling": (
+            "Failed tracks are represented by zero vectors. "
+            "Their details are recorded below."
+        ),
+
+        "failed_track_details": failed_tracks,
+
+        "extraction_time_seconds": round(elapsed, 2)
+    }
+
+    manifest_path = output_dir / "manifest.json"
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(
+            manifest,
+            f,
+            indent=4,
+            ensure_ascii=False
+        )
+
+    # ========================================================
+    # Summary
+    # ========================================================
+
+    print("\n" + "=" * 55)
+    print("MERT EMBEDDING EXTRACTION COMPLETED")
+    print("=" * 55)
+
+    print(f"Total tracks:       {num_tracks}")
+    print(f"Successful tracks:  {successful_count}")
+    print(f"Failed tracks:      {len(failed_tracks)}")
+
+    print(
+        f"Embedding shape:   ({num_tracks}, {EMBEDDING_DIM})"
+    )
+
+    print(f"Elapsed time:       {elapsed / 60:.2f} minutes")
+
+    print(f"\nSaved embeddings: {embedding_path}")
+    print(f"Saved manifest:   {manifest_path}")
+
+    if failed_tracks:
+        print("\nFailed track IDs:")
+        print([
+            item["track_id"]
+            for item in failed_tracks[:20]
+        ])
 
 
-def pool_hidden_states(hidden_states, config):
-    """Apply layer selection and temporal pooling to hidden states; return a float32 [D]
-    segment embedding.
-
-    Args:
-        hidden_states: Frame-level hidden representations returned by the encoder.
-        config: Configuration dictionary for this workflow or operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.pool_hidden_states: not implemented")
-
-
-def extract_track_embedding(segments, encoder, config):
-    """Encode preprocessed segments and pool to a float32 [D] track embedding; apply configured
-    L2 normalization.
-
-    Args:
-        segments: Deterministically preprocessed waveform segment arrays at the model sample
-            rate.
-        encoder: Explicitly loaded MERT encoder context, including the model and processor.
-        config: Configuration dictionary for this workflow or operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.extract_track_embedding: not implemented")
-
-
-def build_cache_key(track, config):
-    """Return a cache key string derived from the audio content fingerprint, model revision,
-    and preprocessing config; do not use built-in hash.
-
-    Args:
-        track: Track record and source audio information used to derive a content
-            fingerprint.
-        config: Configuration dictionary for this workflow or operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.build_cache_key: not implemented")
-
-
-def load_cached_embedding(cache_dir, cache_key):
-    """Read and validate a cached embedding; return float32 [D] on a hit or None if absent.
-    Never accept corrupted cache entries.
-
-    Args:
-        cache_dir: Directory containing cached track embeddings.
-        cache_key: Stable key identifying the audio content and extraction configuration.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.load_cached_embedding: not implemented")
-
-
-def save_cached_embedding(cache_dir, cache_key, embedding):
-    """Write a validated track embedding under its cache key; return the saved path.
-
-    Args:
-        cache_dir: Directory containing cached track embeddings.
-        cache_key: Stable key identifying the audio content and extraction configuration.
-        embedding: Validated float32 [D] track embedding.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.save_cached_embedding: not implemented")
-
-
-def extract_with_cache(tracks, encoder, config, output_dir):
-    """Reuse cache entries or run inference per track; return embeddings/index/status,
-    recording failures without substituting zero vectors.
-
-    Args:
-        tracks: Track records containing string IDs, audio paths, and genre IDs.
-        encoder: Explicitly loaded MERT encoder context, including the model and processor.
-        config: Configuration dictionary for this workflow or operation.
-        output_dir: Destination directory for the artifacts produced by this operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.extract_with_cache: not implemented")
-
-
-def save_embeddings(extraction, config, output_dir):
-    """Write the track matrix, index, extraction status, and manifest; return the manifest
-    dictionary.
-
-    Args:
-        extraction: Extraction dictionary containing the embedding matrix, index, and per-
-            track status.
-        config: Configuration dictionary for this workflow or operation.
-        output_dir: Destination directory for the artifacts produced by this operation.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-    """
-    raise NotImplementedError("audio.save_embeddings: not implemented")
-
-
-def run_pipeline(config, project_root):
-    """Run the audio workflow: explicitly load the model, cache inference, write embedding
-    artifacts, and return the manifest dictionary.
-
-    Args:
-        config: Configuration dictionary for this workflow or operation.
-        project_root: Resolved project root Path used to interpret configured artifact
-            paths.
-
-    Raises:
-        NotImplementedError: This function is a scaffold and has not been implemented.
-
-    Notes:
-        Outputs described above are the intended contract, not current results.
-        Implement feature functions first, then coordinate them here.
-        main() handles CLI arguments; do not substitute invented research results.
-    """
-    raise NotImplementedError("audio.run_pipeline: not implemented")
-
-
-def main(argv=None):
-    """The sole CLI entry point; supports --config, --help, and --check-config.
-
-    Args:
-        argv: Command-line argument list, or None to use the process arguments.
-
-    Notes:
-        The CLI is wired; normal execution still calls an unimplemented workflow.
-        --check-config validates configuration without running that workflow.
-    """
-    return run_module("audio", run_pipeline, argv)
-
+# ============================================================
+# Command-line entry point
+# ============================================================
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(
+        description="Extract MERT embeddings for FMA tracks."
+    )
+
+    parser.add_argument(
+        "--tracks-csv",
+        type=str,
+        default=str(TRACKS_CSV),
+        help="Path to A's prepared tracks.csv"
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=str(OUTPUT_DIR),
+        help="Directory for embeddings and manifest"
+    )
+
+    args = parser.parse_args()
+
+    extract_all_embeddings(
+        tracks_csv=args.tracks_csv,
+        output_dir=args.output_dir
+    )
