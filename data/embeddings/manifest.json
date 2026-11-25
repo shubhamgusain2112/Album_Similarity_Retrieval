@@ -1,0 +1,122 @@
+{
+    "model_name": "m-a-p/MERT-v1-95M",
+    "input_tracks_csv": "/home/s4854756/projects/Album_Similarity_Retrieval/outputs/tracks.csv",
+    "output_embedding_file": "/home/s4854756/projects/Album_Similarity_Retrieval/data/embeddings/track_embeddings.npy",
+    "num_tracks": 22528,
+    "successful_tracks": 22514,
+    "failed_tracks": 14,
+    "embedding_shape": [
+        22528,
+        768
+    ],
+    "embedding_dtype": "float32",
+    "sample_rate": 24000,
+    "audio_channels": 1,
+    "audio_input": "entire_track",
+    "hidden_layer": "last_hidden_state",
+    "pooling": "temporal_mean_pooling",
+    "l2_normalization": false,
+    "row_alignment": "Row i in track_embeddings.npy corresponds exactly to row i in the input tracks.csv.",
+    "failure_handling": "Failed tracks are represented by zero vectors. Their details are recorded below.",
+    "failed_track_details": [
+        {
+            "row_index": 775,
+            "track_id": "5574",
+            "album_id": "1889",
+            "audio_path": "data/raw/fma_medium/005/005574.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 9261,
+            "track_id": "65753",
+            "album_id": "11836",
+            "audio_path": "data/raw/fma_medium/065/065753.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 11533,
+            "track_id": "80391",
+            "album_id": "13766",
+            "audio_path": "data/raw/fma_medium/080/080391.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 13785,
+            "track_id": "98558",
+            "album_id": "15948",
+            "audio_path": "data/raw/fma_medium/098/098558.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 13786,
+            "track_id": "98559",
+            "album_id": "15948",
+            "audio_path": "data/raw/fma_medium/098/098559.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 13787,
+            "track_id": "98560",
+            "album_id": "15948",
+            "audio_path": "data/raw/fma_medium/098/098560.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 13793,
+            "track_id": "98571",
+            "album_id": "15948",
+            "audio_path": "data/raw/fma_medium/098/098571.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 13988,
+            "track_id": "99134",
+            "album_id": "16027",
+            "audio_path": "data/raw/fma_medium/099/099134.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 14427,
+            "track_id": "105247",
+            "album_id": "16454",
+            "audio_path": "data/raw/fma_medium/105/105247.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 15028,
+            "track_id": "108925",
+            "album_id": "16911",
+            "audio_path": "data/raw/fma_medium/108/108925.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 18504,
+            "track_id": "126981",
+            "album_id": "19194",
+            "audio_path": "data/raw/fma_medium/126/126981.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 18655,
+            "track_id": "127336",
+            "album_id": "19251",
+            "audio_path": "data/raw/fma_medium/127/127336.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 19789,
+            "track_id": "133297",
+            "album_id": "20046",
+            "audio_path": "data/raw/fma_medium/133/133297.mp3",
+            "error": ""
+        },
+        {
+            "row_index": 21300,
+            "track_id": "143992",
+            "album_id": "21553",
+            "audio_path": "data/raw/fma_medium/143/143992.mp3",
+            "error": ""
+        }
+    ],
+    "extraction_time_seconds": 4565.77
+}
